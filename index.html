@@ -1,0 +1,161 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>solid-twin · Mid-360 3D 数字孪生原型</title>
+    <link rel="stylesheet" href="/src/ui.css" />
+  </head>
+  <body>
+    <div id="app">
+      <div id="scene-container"></div>
+
+      <header id="titlebar">
+        <h1>solid-twin</h1>
+        <span class="sub">Livox Mid-360 · 3D 数字孪生查看器原型</span>
+      </header>
+
+      <aside id="panel">
+        <section class="group">
+          <h2>数据</h2>
+          <div class="row">
+            <button id="btn-open" class="primary">打开点云文件…</button>
+            <button id="btn-sim">重放模拟扫描</button>
+          </div>
+          <input type="file" id="file-input" multiple accept=".ply,.pcd,.las,.bin,.xyz,.txt,.csv,.pts,.asc,.bag,.db3" hidden />
+          <div class="hint">支持 PLY / PCD / LAS / KITTI bin / XYZ，可直接拖拽文件到窗口；rosbag(.bag/.db3) 需先用 scripts/bag2cloud.py 转换</div>
+          <div id="layers"></div>
+        </section>
+
+        <section class="group">
+          <h2>显示</h2>
+          <label class="lbl">
+            <span>着色模式</span>
+            <select id="sel-color">
+              <option value="height">高程（Turbo）</option>
+              <option value="intensity">反射强度（Viridis）</option>
+              <option value="rgb">原始 RGB</option>
+              <option value="station">测站 / 图层</option>
+            </select>
+          </label>
+          <label class="lbl">
+            <span>点大小</span>
+            <input type="range" id="rg-size" min="0.005" max="0.15" step="0.005" value="0.025" />
+            <em id="val-size">0.025</em>
+          </label>
+          <label class="lbl">
+            <span>点数比例</span>
+            <input type="range" id="rg-decim" min="0.02" max="1" step="0.02" value="1" />
+            <em id="val-decim">100%</em>
+          </label>
+          <label class="lbl">
+            <span>坐标朝向</span>
+            <select id="sel-orient">
+              <option value="auto" selected>自动检测 (PCA)</option>
+              <option value="y">Y 朝上</option>
+              <option value="z">Z 朝上</option>
+              <option value="x">X 朝上</option>
+            </select>
+          </label>
+          <div class="row chk-row">
+            <label><input type="checkbox" id="chk-grid" checked /> 地面网格</label>
+            <label><input type="checkbox" id="chk-axes" checked /> 坐标轴</label>
+            <label><input type="checkbox" id="chk-light" /> 亮色背景</label>
+          </div>
+        </section>
+
+        <section class="group">
+          <h2>扫描回放</h2>
+          <div class="row">
+            <button id="btn-play" class="primary">▶ 播放</button>
+            <select id="sel-speed">
+              <option value="0.5">×0.5</option>
+              <option value="1" selected>×1</option>
+              <option value="2">×2</option>
+              <option value="5">×5</option>
+              <option value="20">×20</option>
+            </select>
+          </div>
+          <div class="progress"><div id="replay-bar"></div></div>
+          <div class="hint" id="replay-text">按扫描时间顺序逐点回放，展示非重复扫描的累积效果</div>
+        </section>
+
+        <section class="group" id="grp-devices">
+          <h2>设备与告警</h2>
+          <div class="row">
+            <button id="btn-mark" class="primary">标记设备</button>
+            <button id="btn-demo-alarm">模拟告警</button>
+            <button id="btn-clear-alarms">清除告警</button>
+          </div>
+          <div class="chk-row"><label><input type="checkbox" id="chk-demo-stream" /> 演示告警流（每 7s）</label></div>
+
+          <div id="device-form" hidden>
+            <div class="hint" id="df-pos">位置：—</div>
+            <div class="row">
+              <input id="df-id" placeholder="ID，如 BAT-A" />
+              <input id="df-name" placeholder="设备名称" />
+            </div>
+            <div class="row">
+              <select id="df-type">
+                <option value="电池簇">电池簇</option>
+                <option value="PCS">PCS</option>
+                <option value="变压器">变压器</option>
+                <option value="消防">消防</option>
+                <option value="环境">环境</option>
+                <option value="其他">其他</option>
+              </select>
+              <input id="df-radius" type="number" step="0.5" min="0.5" value="2" title="关联半径 (m)" />
+            </div>
+            <div class="row">
+              <select id="df-dir" title="阵列方向">
+                <option value="+Z">阵列 +Z</option>
+                <option value="-Z">阵列 -Z</option>
+                <option value="+X">阵列 +X</option>
+                <option value="-X">阵列 -X</option>
+              </select>
+              <input id="df-gap" type="number" step="0.5" min="0" value="3" title="间距 (m)" />
+              <input id="df-count" type="number" min="1" step="1" value="1" title="数量（含首个）" />
+            </div>
+            <div class="row">
+              <button id="df-ok" class="primary">添加设备</button>
+              <button id="df-cancel">取消</button>
+            </div>
+          </div>
+
+          <div id="device-list"></div>
+
+          <div class="row">
+            <button id="btn-export-devices">导出设备</button>
+            <button id="btn-import-devices">导入设备</button>
+            <input type="file" id="devices-input" accept=".json" hidden />
+          </div>
+
+          <div class="row ws-row">
+            <input id="ws-url" placeholder="ws://host/alarms（实时告警源）" />
+            <button id="btn-ws">连接</button>
+            <span class="ws-dot" id="ws-dot"></span>
+          </div>
+          <div id="alarm-feed"></div>
+        </section>
+
+        <section class="group">
+          <h2>视图与导出</h2>
+          <div class="row">
+            <button id="btn-fit">适配视野</button>
+            <button id="btn-top">俯视</button>
+            <button id="btn-iso">等轴测</button>
+          </div>
+          <div class="row">
+            <button id="btn-shot">截图 PNG</button>
+            <button id="btn-export">导出 PCD</button>
+          </div>
+        </section>
+      </aside>
+
+      <div id="hud"></div>
+      <div id="status"></div>
+      <div id="drop-overlay"><div>松开以载入点云文件</div></div>
+    </div>
+    <script type="module" src="/src/main.js"></script>
+  </body>
+</html>

@@ -1,0 +1,22 @@
+{
+  "name": "solid-twin",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "description": "Livox Mid-360 3D 数字孪生查看器原型（合成扫描 + 公开数据集离线测试）",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "check": "node scripts/check_refs.mjs",
+    "test": "node scripts/test_loaders.mjs",
+    "gen:sample": "node scripts/gen_sample.mjs"
+  },
+  "dependencies": {
+    "three": "^0.185.1"
+  },
+  "devDependencies": {
+    "acorn": "^8.18.0",
+    "vite": "^8.2.2"
+  }
+}
